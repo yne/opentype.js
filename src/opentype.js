@@ -5,6 +5,7 @@
 
 /* global DataView, Uint8Array, XMLHttpRequest  */
 
+import 'string.prototype.codepointat';
 import inflate from 'tiny-inflate';
 import Font from './font';
 import Glyph from './glyph';
@@ -338,6 +339,7 @@ function parseBuffer(buffer, opt) {
     if (gposTableEntry) {
         const gposTable = uncompressTable(data, gposTableEntry);
         font.tables.gpos = gpos.parse(gposTable.data, gposTable.offset);
+        font.position.init();
     }
 
     if (gsubTableEntry) {

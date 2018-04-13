@@ -9,6 +9,9 @@ import Substitution from './substitution';
 import { isBrowser, checkArgument, arrayBufferToNodeBuffer } from './util';
 import HintingTrueType from './hintingtt';
 
+// This code is based on Array.from implementation for strings in https://github.com/mathiasbynens/Array.from
+const arrayFromString = Array.from || (s => s.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]?|[^\uD800-\uDFFF]|./g) || []);
+
 /**
  * @typedef FontOptions
  * @type Object
@@ -62,7 +65,8 @@ function Font(options) {
             fontFamily: {en: options.familyName || ' '},
             fontSubfamily: {en: options.styleName || ' '},
             fullName: {en: options.fullName || options.familyName + ' ' + options.styleName},
-            postScriptName: {en: options.postScriptName || options.familyName + options.styleName},
+            // postScriptName may not contain any whitespace
+            postScriptName: {en: options.postScriptName || (options.familyName + options.styleName).replace(/\s/g, '')},
             designer: {en: options.designer || ' '},
             designerURL: {en: options.designerURL || ' '},
             manufacturer: {en: options.manufacturer || ' '},
@@ -156,9 +160,10 @@ Font.prototype.charToGlyph = function(c) {
 Font.prototype.stringToGlyphs = function(s, options) {
     options = options || this.defaultRenderOptions;
     // Get glyph indexes
+    const chars = arrayFromString(s);
     const indexes = [];
-    for (let i = 0; i < s.length; i += 1) {
-        const c = s[i];
+    for (let i = 0; i < chars.length; i += 1) {
+        const c = chars[i];
         indexes.push(this.charToGlyphIndex(c));
     }
     let length = indexes.length;
@@ -233,6 +238,8 @@ Font.prototype.glyphIndexToName = function(gid) {
  * and the right glyph (or its index). If no kerning pair is found, return 0.
  * The kerning value gets added to the advance width when calculating the spacing
  * between glyphs.
+ * For GPOS kerning, this method uses the default script and language, which covers
+ * most use cases. To have greater control, use font.position.getKerningValue .
  * @param  {opentype.Glyph} leftGlyph
  * @param  {opentype.Glyph} rightGlyph
  * @return {Number}
@@ -240,6 +247,11 @@ Font.prototype.glyphIndexToName = function(gid) {
 Font.prototype.getKerningValue = function(leftGlyph, rightGlyph) {
     leftGlyph = leftGlyph.index || leftGlyph;
     rightGlyph = rightGlyph.index || rightGlyph;
+    const gposKerning = this.position.defaultKerningTables;
+    if (gposKerning) {
+        return this.position.getKerningValue(gposKerning, leftGlyph, rightGlyph);
+    }
+    // "kern" table
     return this.kerningPairs[leftGlyph + ',' + rightGlyph] || 0;
 };
 
